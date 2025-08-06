@@ -1,0 +1,14 @@
+[project]
+name = "comfyg-queue"
+description = "Comfyg Queue is a custom node for create multiple queues at same time, but with some config variations."
+version = "1.0.0"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/guerreiro/comfyg-queue"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "guerreiro"
+DisplayName = "comfyg-queue"
+Icon = ""
