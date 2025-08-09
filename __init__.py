@@ -1,4 +1,17 @@
 from .ComfygQueue import ComfygQueue 
-NODE_CLASS_MAPPINGS = { "ComfygQueue" : ComfygQueue }
-NODE_DISPLAY_NAME_MAPPINGS = { "ComfygQueue" : "Comfyg Queue" }
+from .ComfygQueue import ComfygQueueTrigger 
+# NODE_CLASS_MAPPINGS = { "ComfygQueue" : ComfygQueue, "ComfygQueueSimple": ComfygQueueSimple }
+# NODE_DISPLAY_NAME_MAPPINGS = { "ComfygQueue" : "Comfyg Queue", ComfygQueueSimple : "Comfyg Queue Simple" }
+
+
+NODE_CLASS_MAPPINGS = {
+    "ComfygQueue": ComfygQueue,
+    "ComfygQueueTrigger": ComfygQueueTrigger
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    ComfygQueue: "Batch Resolution Generator", 
+    ComfygQueueTrigger: "Multi-Queue Trigger"
+}
+
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
