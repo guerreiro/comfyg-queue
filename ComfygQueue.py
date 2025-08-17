@@ -13,6 +13,7 @@ import comfy
 import torch
 import nodes
 import folder_paths
+from datetime import datetime
 
 # ------------------------------
 # Helper Functions
@@ -25,30 +26,21 @@ def parse_resolutions(res_string):
         if (m := re.match(r"\s*(\d+)x(\d+)", r.strip()))
     ]
 
-def save_tensor_image(image_tensor, filename, output_subdir=""):
-    """Save ComfyUI tensor image to PNG"""
-    try:
-        if image_tensor.dim() == 4:
-            image_tensor = image_tensor[0]
-        image_np = (image_tensor.cpu().numpy() * 255).astype(np.uint8)
-        if image_np.shape[-1] == 3:
-            image_pil = Image.fromarray(image_np, "RGB")
-        elif image_np.shape[-1] == 4:
-            image_pil = Image.fromarray(image_np, "RGBA")
-        else:
-            image_pil = Image.fromarray(image_np[:, :, 0], "L")
+def get_datetime_str():
+    """Return current date/time as YYYYMMDD_HHMMSS"""
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        output_dir = folder_paths.get_output_directory()
-        if output_subdir:
-            output_dir = os.path.join(output_dir, output_subdir)
-            os.makedirs(output_dir, exist_ok=True)
-
-        filepath = os.path.join(output_dir, filename)
-        image_pil.save(filepath, "PNG")
-        return filepath
-    except Exception as e:
-        print(f"Error saving {filename}: {e}")
-        return None
+def normalize_extra_pnginfo(extra):
+    if extra is None:
+        return {}
+    if isinstance(extra, list):
+        for item in extra:
+            if isinstance(item, dict):
+                return item
+        return {}
+    if isinstance(extra, dict):
+        return extra
+    return {}
 
 
 # ------------------------------
@@ -62,7 +54,7 @@ class ComfygQueue:
         return {
             "required": {
                 "res_presets": ("STRING", {"default": "1024x1024,1152x896,896x1152"}),
-                "save_prefix": ("STRING", {"default": "ComfygQueue_Gen_"}),
+                "save_prefix": ("STRING", {"default": "CQGen_"}),
                 "batch_seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffffffffffff}),
             },
             "optional": {
@@ -70,7 +62,7 @@ class ComfygQueue:
                 "model": ("MODEL",),
                 "positive": ("CONDITIONING",),
                 "negative": ("CONDITIONING",),
-                "latent": ("LATENT",),  # optional
+                "latent": ("LATENT",),
                 "vae": ("VAE",),
                 "steps": ("INT", {"default": 20, "min": 1, "max": 10000}),
                 "cfg": ("FLOAT", {"default": 7.0, "min": 0.0, "max": 100.0}),
@@ -89,19 +81,6 @@ class ComfygQueue:
     RETURN_NAMES = ("save_info","file_list")
     FUNCTION = "process"
     OUTPUT_NODE = True
-
-    def _normalize_extra_pnginfo(self, extra):
-        # Some nodes/framework versions hand this in as [dict]; make it robust.
-        if extra is None:
-            return {}
-        if isinstance(extra, list):
-            for item in extra:
-                if isinstance(item, dict):
-                    return item
-            return {}
-        if isinstance(extra, dict):
-            return extra
-        return {}
 
     def save_image_with_metadata(self, image_tensor, filename, prompt, extra_pnginfo, seed, output_subdir=""):
         try:
@@ -127,7 +106,7 @@ class ComfygQueue:
             try:
                 if prompt is not None:
                     pnginfo.add_text("prompt", json.dumps(prompt))
-                ep = self._normalize_extra_pnginfo(extra_pnginfo)
+                ep = normalize_extra_pnginfo(extra_pnginfo)
                 if ep:
                     for k, v in ep.items():
                         # Stock SaveImage json.dumps every value.
@@ -144,9 +123,17 @@ class ComfygQueue:
             return None
 
     def process(self, res_presets, save_prefix, batch_seed, output_subdir="", prompt=None, extra_pnginfo=None, **kwargs):
-        resolutions = parse_resolutions(res_presets)
-        if not resolutions:
-            return ("No valid resolutions found",)
+        
+        # Latent optional
+        if kwargs.get("latent") is not None:
+            latent_image = kwargs.get("latent")
+            # h, w = latent_image.shape[-2:]  # Assuming latent tensor shape [C,H,W] or [N,C,H,W]
+            resolutions = [(0, 0)]  # Only use the latent's resolution
+        else:
+            latent_image = None
+            resolutions = parse_resolutions(res_presets)
+            if not resolutions:
+                return ("No valid resolutions found",)
 
         missing = [n for n in ["model", "positive", "negative", "vae"] if kwargs.get(n) is None]
         if missing:
@@ -184,17 +171,18 @@ class ComfygQueue:
             
             seed = base_seed
             try:
-                # Latent optional
-                if kwargs.get("latent") is not None:
-                    latent_image = kwargs["latent"]
+                
+                # Use the provided latent if it exists
+                if latent_image is not None:
+                    latent_to_use = latent_image
                 else:
-                    latent_image = empty_latent.generate(w, h, 1)[0]
+                    latent_to_use = empty_latent.generate(w, h, 1)[0]
 
                 samples = ksampler.sample(model, seed, steps, cfg, sampler_name, scheduler,
-                                          positive, negative, latent_image, denoise)[0]
+                                          positive, negative, latent_to_use, denoise)[0]
                 image = decode.decode(vae, samples)[0]
 
-                filename = f"{save_prefix}_{w}x{h}_seed_{seed}.png"
+                filename = f"{save_prefix}{get_datetime_str()}_{w}x{h}_{seed}.png"
                 saved_path = self.save_image_with_metadata(
                     image, filename, prompt, extra_pnginfo, seed, output_subdir
                 )
