@@ -1,8 +1,5 @@
 from .ComfygQueue import ComfygQueue 
-from .ComfygQueue import ComfygQueueTrigger 
-# NODE_CLASS_MAPPINGS = { "ComfygQueue" : ComfygQueue, "ComfygQueueSimple": ComfygQueueSimple }
-# NODE_DISPLAY_NAME_MAPPINGS = { "ComfygQueue" : "Comfyg Queue", ComfygQueueSimple : "Comfyg Queue Simple" }
-
+from .ComfygQueue import ComfygQueueTrigger
 
 NODE_CLASS_MAPPINGS = {
     "ComfygQueue": ComfygQueue,
