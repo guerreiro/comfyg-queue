@@ -161,6 +161,8 @@ class ComfygQueue:
         # Generate the base seed once for all resolutions
         if batch_seed == -1:
             base_seed = random.randint(0, 2**31 - 1)
+        else:
+            base_seed = batch_seed
 
         # Loop over resolutions but keep the same seed
         for w, h in resolutions:
